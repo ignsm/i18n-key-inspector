@@ -2,12 +2,13 @@
 
 Point at any text on the page. See the translation key that made it.
 
-A tool that guesses the key from the rendered text has two problems. It cannot
-tell two equal strings apart. It also never sees copy that renders later. This
-library takes the other route. It writes an invisible prefix in front of every
-message, then reads that prefix back from the DOM. The key travels inside the
-string. It survives `v-html`, attributes, and a section that hydrates ten
-seconds after the first paint.
+The library writes an invisible prefix in front of every message, then reads
+that prefix back from the DOM. The key travels inside the string. It survives
+`v-html`, attributes, and a section that hydrates ten seconds after the first
+paint.
+
+Searching the DOM for the rendered text cannot do that. It cannot tell two
+equal strings apart, and it never sees copy that renders later.
 
 Use this library in development only. Do not ship it to production.
 
@@ -27,15 +28,15 @@ startInspector(createVueI18nAdapter(i18n.global))
 ```
 
 Press <kbd>Alt</kbd> three times to turn the mode on. <kbd>Option</kbd> on a
-Mac. Then hold the same key: every translated string lights up, and the one
-under the pointer shows its key. Holding it and clicking copies the key: the
-tooltip says `Copied` for a moment, then goes back to the key. Three presses
-again turns the mode off.
+Mac. Then hold the same key. Every translated string lights up, and the one
+under the pointer shows its key. Hold the key and click to copy it. The tooltip
+says `Copied` for a moment, then shows the key again. Three presses turn the
+mode off.
 
-Until you press it, the page is untouched. No catalogue is rewritten, and
-nothing is marked.
+Until you press it, the inspector leaves the page alone. It rewrites no
+catalogue, and it marks nothing.
 
-The shortcut is yours to change:
+Change the shortcut:
 
 ```ts
 startInspector(adapter, {
@@ -46,8 +47,8 @@ startInspector(adapter, { activation: null }) // start at once, no shortcut
 ```
 
 `startInspector` returns `{ inspector, active, toggle, stop }`, so you can
-drive it from your own devtools panel, and `inspector.keyAt(element)` gives
-you the key for your own UI.
+drive it from your own devtools panel. `inspector.keyAt(element)` gives you the
+key for your own UI.
 
 ## Use it in Nuxt
 
@@ -73,8 +74,8 @@ The dynamic import keeps the package out of the production bundle. The
 
 ## Bring your own UI
 
-`startInspector` is the inspector plus a small overlay. Skip the overlay when
-you want your own.
+`startInspector` builds the inspector and a small overlay. Skip the overlay
+when you want your own.
 
 ```ts
 import { Inspector } from 'i18n-key-inspector'
@@ -151,10 +152,9 @@ The package ships ESM only. Node 20.19 or later, and a bundler that reads the
 The vue-i18n adapter works with vue-i18n 9, 10, and 11. CI runs the adapter
 tests against each of them.
 
-The overlay draws in a shadow root and never writes a style onto an element of
-your app. That matters more than it sounds: restyling a native control makes
-Safari drop its own appearance and resize it, which moves the page. The boxes
-you see are drawn on top instead.
+The overlay draws in a shadow root. It writes no style onto an element of your
+app, and draws its boxes on top instead. Restyling a native control makes
+Safari drop its own appearance and resize it, which moves the page.
 
 Building your own UI instead? Mark it with `data-i18n-inspector-ui`, or set
 `toolSelector`, so the inspector does not read it as new copy from your app.
