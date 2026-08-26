@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -20,40 +23,41 @@ jobs:
       - name: Test each supported vue-i18n major
         run: |
           for major in 9 10; do
-            pnpm add -D "vue-i18n@^$major.0.0" --no-frozen-lockfile
+            pnpm add -D "vue-i18n@^$major.0.0"
             pnpm test
           done
       - run: pnpm pack --pack-destination /tmp
       - run: npx --yes publint /tmp/*.tgz
       - run: npx --yes @arethetypeswrong/cli --pack . --profile esm-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tarball
+          path: /tmp/*.tgz
 
-  # The package claims Node 20, and its dev stack needs 22. So build on 22,
-  # then install the tarball on 20 and import it.
+  # The package claims Node 20, and its dev stack needs 22. So build there,
+  # then install the tarball here and import it.
   node20:
     runs-on: ubuntu-latest
+    needs: verify
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm pack --pack-destination /tmp
       - uses: actions/setup-node@v5
         with:
           node-version: 20
-      - name: Import the packed tarball on Node 20
+      - uses: actions/download-artifact@v4
+        with:
+          name: tarball
+          path: /tmp/tarball
+      - name: Import the packed tarball
         run: |
           mkdir -p /tmp/consumer && cd /tmp/consumer
           npm init -y > /dev/null
-          npm install /tmp/*.tgz
+          npm install /tmp/tarball/*.tgz
           node --input-type=module -e "
             import { Inspector, startInspector, stripMarkers } from 'i18n-key-inspector'
             import { createVueI18nAdapter } from 'i18n-key-inspector/vue-i18n'
-            const missing = [Inspector, startInspector, stripMarkers, createVueI18nAdapter]
-              .filter((each) => typeof each !== 'function')
-            if (missing.length > 0) throw new Error('the package did not export everything')
+            const exported = [Inspector, startInspector, stripMarkers, createVueI18nAdapter]
+            if (exported.some((each) => typeof each !== 'function')) {
+              throw new Error('the package did not export everything')
+            }
             console.log('Node ' + process.versions.node + ' imports the package')
           "
