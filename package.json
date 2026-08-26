@@ -1,6 +1,6 @@
 {
   "name": "i18n-key-inspector",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "See which translation key produced any text on the page.",
   "keywords": [
     "i18n",
