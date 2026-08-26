@@ -188,8 +188,18 @@ describe('markCatalogue on compiled messages', () => {
     expect(table.keyFor(text(cases[1]?.i?.[0]?.v))).toBe('cart.count')
   })
 
-  it('leaves a message opening with an interpolation alone', () => {
-    const message = { t: 0, b: { i: [{ t: 5 }, { t: 3, v: ' notes' }] } }
+  it('marks the first token that holds text, past an interpolation', () => {
+    const { marked, table } = markWith({
+      cart: { count: { t: 0, b: { i: [{ t: 5 }, { t: 3, v: ' notes' }] } } },
+    })
+    const tokens = ((marked.cart as MessageGroup).count as CompiledMessage).b?.i ?? []
+
+    expect(table.keyFor(text(tokens[1]?.v))).toBe('cart.count')
+    expect(stripMarkers(text(tokens[1]?.v))).toBe(' notes')
+  })
+
+  it('leaves a message that holds no text at all alone', () => {
+    const message = { t: 0, b: { i: [{ t: 5 }] } }
     const { marked, table } = markWith({ cart: { count: message } })
 
     expect((marked.cart as MessageGroup).count).toBe(message)

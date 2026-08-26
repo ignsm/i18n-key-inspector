@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- A plural whose branch opens with an interpolation now carries its key.
+  `one note | {n} notes` reported nothing before.
+
 ## 0.1.0
 
 First release.

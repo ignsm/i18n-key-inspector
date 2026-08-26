@@ -97,20 +97,21 @@ function markCases(body: MessageBody, marker: string, options: TextOptions): Mes
   return 'cases' in body ? { ...body, cases: marked } : { ...body, c: marked }
 }
 
+// The marker goes on the first token that holds text, not on the first token.
+// A message can open with an interpolation, as `{n} notes` does.
 function markTokens(
   tokens: readonly MessageToken[],
   marker: string,
   options: TextOptions
 ): readonly MessageToken[] | null {
-  const [first, ...rest] = tokens
-  if (first === undefined) return null
+  const at = tokens.findIndex((token) => typeof (token.value ?? token.v) === 'string')
+  if (at === -1) return null
 
-  const text = first.value ?? first.v
-  if (typeof text !== 'string') return null
-
+  const token = tokens[at] as MessageToken
+  const text = (token.value ?? token.v) as string
   const marked = markCompiledText(text, marker, options)
   if (marked === null) return null
 
-  const head = 'value' in first ? { ...first, value: marked } : { ...first, v: marked }
-  return [head, ...rest]
+  const head = 'value' in token ? { ...token, value: marked } : { ...token, v: marked }
+  return tokens.map((each, index) => (index === at ? head : each))
 }
