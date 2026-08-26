@@ -19,12 +19,14 @@ jobs:
           node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
+      # Trusted publishing needs a newer npm than Node 22 ships with.
+      - run: npm install -g npm@latest
       - run: pnpm install --frozen-lockfile
       - name: Check the tag against the version
         env:
           TAG: ${{ github.ref_name }}
         run: test "$TAG" = "v$(node -p 'require("./package.json").version')"
       - run: pnpm verify
-      - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # No token: the trusted publisher signs this with OIDC, and npm adds
+      # the provenance attestation by itself.
+      - run: npm publish
