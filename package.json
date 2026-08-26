@@ -1,0 +1,76 @@
+{
+  "name": "i18n-key-inspector",
+  "version": "0.1.0",
+  "description": "See which translation key produced any text on the page.",
+  "keywords": [
+    "i18n",
+    "vue-i18n",
+    "nuxt",
+    "devtools",
+    "debug",
+    "translation-keys",
+    "inspector"
+  ],
+  "license": "MIT",
+  "author": "Ignat Smirnov <mail@ignat.co.uk>",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./vue-i18n": {
+      "types": "./dist/vue-i18n/index.d.mts",
+      "import": "./dist/vue-i18n/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "comments": "node scripts/check-comments.mjs src/*.ts src/overlay/*.ts src/vue-i18n/*.ts test/*.ts scripts/*.mjs playground/*.ts",
+    "verify": "pnpm check && pnpm comments && pnpm typecheck && pnpm test && pnpm build",
+    "prepack": "pnpm build",
+    "play": "vite playground"
+  },
+  "peerDependencies": {
+    "vue-i18n": "^11.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vue-i18n": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitest/coverage-v8": "^4.1.11",
+    "happy-dom": "^20.11.6",
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11",
+    "vue": "^3.5.41",
+    "vue-i18n": "^11.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ignsm/i18n-key-inspector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ignsm/i18n-key-inspector/issues"
+  },
+  "homepage": "https://github.com/ignsm/i18n-key-inspector#readme",
+  "packageManager": "pnpm@11.0.9"
+}
