@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- The vue-i18n adapter now supports vue-i18n 9 and 10, next to 11. CI tests
+  each major.
+- Minimum Node is 20.19, down from 22.
+
 ## 0.1.1
 
 - A plural whose branch opens with an interpolation now carries its key.

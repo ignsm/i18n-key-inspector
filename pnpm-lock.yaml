@@ -36,7 +36,7 @@ importers:
         specifier: ^3.5.41
         version: 3.5.41(typescript@7.0.2)
       vue-i18n:
-        specifier: ^11.2.1
+        specifier: ^11.4.9
         version: 11.4.9(vue@3.5.41(typescript@7.0.2))
 
 packages:

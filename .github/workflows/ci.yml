@@ -17,6 +17,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      - name: Test each supported vue-i18n major
+        run: |
+          for major in 9 10; do
+            pnpm add -D "vue-i18n@^$major.0.0" --no-frozen-lockfile
+            pnpm test
+          done
       - run: pnpm pack --pack-destination /tmp
       - run: npx --yes publint /tmp/*.tgz
       - run: npx --yes @arethetypeswrong/cli --pack . --profile esm-only

@@ -145,8 +145,11 @@ values of a record can be icon names and other identifiers.
 
 ## Requirements
 
-The package ships ESM only. Node 22 or later, and a bundler that reads the
+The package ships ESM only. Node 20.19 or later, and a bundler that reads the
 `exports` map. There is no `require` build, and none is planned.
+
+The vue-i18n adapter works with vue-i18n 9, 10, and 11. CI runs the adapter
+tests against each of them.
 
 The overlay draws in a shadow root and never writes a style onto an element of
 your app. That matters more than it sounds: restyling a native control makes
