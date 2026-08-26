@@ -290,3 +290,37 @@ describe('Inspector on an attribute that changes after start', () => {
     inspector.stop()
   })
 })
+
+describe('Inspector on a section that hydrates in place', () => {
+  it('marks again after a scroll', async () => {
+    vi.useFakeTimers()
+    const app = createApp({ en: { late: { header: 'Later' } } }, 'en')
+    const inspector = new Inspector(app.adapter)
+    inspector.start()
+
+    // Hydration adopts the server text, so the observer sees no mutation.
+    const section = document.createElement('section')
+    document.body.append(section)
+    app.render(section, 'late.header')
+    const applied = vi.spyOn(app.adapter, 'setCatalogue')
+
+    window.dispatchEvent(new Event('scroll'))
+    vi.advanceTimersByTime(500)
+
+    expect(applied).toHaveBeenCalled()
+    inspector.stop()
+    vi.useRealTimers()
+  })
+
+  it('stops listening for scrolls when it stops', () => {
+    const app = createApp({ en: { hero: { header: 'Hi' } } }, 'en')
+    const inspector = new Inspector(app.adapter)
+    inspector.start()
+    inspector.stop()
+
+    const applied = vi.spyOn(app.adapter, 'setCatalogue')
+    window.dispatchEvent(new Event('scroll'))
+
+    expect(applied).not.toHaveBeenCalled()
+  })
+})

@@ -32,6 +32,7 @@ export class Inspector {
   #selfInflictedUntil = 0
   #running = false
   #observer: MutationObserver | null = null
+  #onScroll: (() => void) | null = null
   #reapplyTimer: ReturnType<typeof setTimeout> | null = null
   #hydrationTimer: ReturnType<typeof setTimeout> | null = null
   #labelled = new WeakSet<Element>()
@@ -75,6 +76,7 @@ export class Inspector {
     try {
       this.#apply()
       this.#watch()
+      this.#watchScroll()
       this.#hydrationTimer = setTimeout(() => this.#apply(), this.#options.hydrationDelayMs)
     } catch (failure) {
       // A half-started inspector would keep the markers forever.
@@ -93,6 +95,8 @@ export class Inspector {
     } finally {
       this.#observer?.disconnect()
       this.#observer = null
+      if (this.#onScroll !== null) window.removeEventListener('scroll', this.#onScroll)
+      this.#onScroll = null
       this.#clearTimers()
       this.#clearTags()
     }
@@ -178,6 +182,13 @@ export class Inspector {
       const catalogue = this.#adapter.getCatalogue(locale)
       if (Object.keys(catalogue).length > 0) this.#originals.set(locale, catalogue)
     }
+  }
+
+  // A section that hydrates on scroll adopts the server text in place, so the
+  // observer sees no mutation. Scrolling is the only signal that it happened.
+  #watchScroll(): void {
+    this.#onScroll = () => this.#scheduleApply()
+    window.addEventListener('scroll', this.#onScroll, { passive: true })
   }
 
   #watch(): void {

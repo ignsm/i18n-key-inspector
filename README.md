@@ -117,6 +117,10 @@ new Inspector(adapter, {
 | `selfInflictedMs` | `600` | Window in which a mutation counts as our own |
 | `hydrationDelayMs` | `1500` | One extra pass after start, for late hydration |
 
+A section that hydrates on scroll adopts the server text in place, so nothing
+mutates for the observer to see. The inspector watches scrolling for that
+reason, and marks again after it settles.
+
 ### Which strings to skip
 
 Skip copy that reaches only `<title>` and `<meta>`. Nobody can point at it. A

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- A section that hydrates on scroll now gets its keys. Hydration adopts the
+  server text in place, so the observer sees no mutation to react to.
+
 ## 0.2.0
 
 - The vue-i18n adapter now supports vue-i18n 9 and 10, next to 11. CI tests
