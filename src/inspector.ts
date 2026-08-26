@@ -184,8 +184,8 @@ export class Inspector {
     }
   }
 
-  // A section that hydrates on scroll adopts the server text in place, so the
-  // observer sees no mutation. Scrolling is the only signal that it happened.
+  // A section that hydrates on scroll adopts the server text in place.
+  // The observer sees no mutation, so scrolling is the only signal.
   #watchScroll(): void {
     this.#onScroll = () => this.#scheduleApply()
     window.addEventListener('scroll', this.#onScroll, { passive: true })
