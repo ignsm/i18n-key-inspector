@@ -26,3 +26,34 @@ jobs:
       - run: pnpm pack --pack-destination /tmp
       - run: npx --yes publint /tmp/*.tgz
       - run: npx --yes @arethetypeswrong/cli --pack . --profile esm-only
+
+  # The package claims Node 20, and its dev stack needs 22. So build on 22,
+  # then install the tarball on 20 and import it.
+  node20:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm pack --pack-destination /tmp
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Import the packed tarball on Node 20
+        run: |
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          npm init -y > /dev/null
+          npm install /tmp/*.tgz
+          node --input-type=module -e "
+            import { Inspector, startInspector, stripMarkers } from 'i18n-key-inspector'
+            import { createVueI18nAdapter } from 'i18n-key-inspector/vue-i18n'
+            const missing = [Inspector, startInspector, stripMarkers, createVueI18nAdapter]
+              .filter((each) => typeof each !== 'function')
+            if (missing.length > 0) throw new Error('the package did not export everything')
+            console.log('Node ' + process.versions.node + ' imports the package')
+          "
