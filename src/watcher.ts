@@ -6,8 +6,8 @@ export interface WatcherPorts {
   readonly toolSelector: string
   /** Reads the markers of a node that the app added. */
   readonly read: (node: Node) => void
-  /** Reads the markers of the attributes of one element. */
-  readonly readAttributes: (element: Element) => void
+  /** Refreshes the sources on an element after a mutation. */
+  readonly readElement: (element: Element) => void
   /**
    * `true` while a mutation still belongs to the last marking pass.
    * The watcher asks once for each batch, never once for each record.
@@ -47,8 +47,8 @@ export function createWatcher(ports: WatcherPorts): MutationObserver {
 
 function readRecord(record: MutationRecord, ports: WatcherPorts): void {
   if (record.type === 'characterData') ports.read(record.target)
-  if (record.type === 'attributes' && record.target instanceof Element) {
-    ports.readAttributes(record.target)
+  if (record.type !== 'characterData' && record.target instanceof Element) {
+    ports.readElement(record.target)
   }
   for (const node of Array.from(record.addedNodes)) ports.read(node)
 }

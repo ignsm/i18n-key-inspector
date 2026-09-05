@@ -4,7 +4,8 @@ Thank you for looking at this package.
 
 ## Development
 
-The repository uses pnpm and Node 20 or later.
+Use pnpm and Node 22.18 or a newer Node 22 release for development.
+The published package supports Node 20.19 as well.
 
 ```sh
 pnpm install
@@ -12,8 +13,8 @@ pnpm verify
 ```
 
 `pnpm verify` runs the formatter, the comment checker, the type checker, the
-tests, and the build. CI runs the same command, so a green `verify` means a
-green pull request.
+tests, and the build. CI also tests the supported vue-i18n majors, checks
+the package exports and types, and imports the tarball on Node 20.
 
 Single steps: `pnpm test`, `pnpm typecheck`, `pnpm check`, `pnpm comments`.
 
