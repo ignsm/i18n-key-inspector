@@ -1,5 +1,5 @@
 import { markCatalogue } from './catalogue'
-import { type ReaderContext, readAttributeMarkers, readMarkers } from './dom'
+import { type MarkerSource, type ReaderContext, readElementMarkers, readMarkers } from './dom'
 import { NoDocumentError } from './errors'
 import {
   DEFAULT_INSPECTOR_OPTIONS,
@@ -35,7 +35,8 @@ export class Inspector {
   #onScroll: (() => void) | null = null
   #reapplyTimer: ReturnType<typeof setTimeout> | null = null
   #hydrationTimer: ReturnType<typeof setTimeout> | null = null
-  #labelled = new WeakSet<Element>()
+  #texts = new WeakMap<Node, MarkerSource>()
+  #attributes = new WeakMap<Element, Map<string, MarkerSource>>()
   readonly #tagged = new Map<Element, string | null>()
 
   constructor(adapter: CatalogueAdapter, init: InspectorInit = {}) {
@@ -126,7 +127,8 @@ export class Inspector {
       else element.setAttribute(this.#attribute, previous)
     }
     this.#tagged.clear()
-    this.#labelled = new WeakSet()
+    this.#texts = new WeakMap()
+    this.#attributes = new WeakMap()
   }
 
   /**
@@ -147,7 +149,9 @@ export class Inspector {
     return {
       keyAttribute: this.#attribute,
       keyFor: (marked: string) => this.#table.keyFor(marked),
-      labelled: this.#labelled,
+      texts: this.#texts,
+      attributes: this.#attributes,
+      onClear: (element: Element) => this.#forget(element),
       onTag: (element: Element) => this.#remember(element),
     }
   }
@@ -155,6 +159,14 @@ export class Inspector {
   #remember(element: Element): void {
     if (this.#tagged.has(element)) return
     this.#tagged.set(element, element.getAttribute(this.#attribute))
+  }
+
+  #forget(element: Element): void {
+    if (!this.#tagged.has(element)) return
+    const previous = this.#tagged.get(element)
+    this.#tagged.delete(element)
+    if (previous == null) element.removeAttribute(this.#attribute)
+    else element.setAttribute(this.#attribute, previous)
   }
 
   // One table covers every loaded locale.
@@ -166,7 +178,6 @@ export class Inspector {
     this.#snapshotLocales()
     this.#generation += 1
     this.#table = new KeyTable(this.#generation)
-    this.#labelled = new WeakSet()
     this.#selfInflictedUntil = Date.now() + this.#options.selfInflictedMs
 
     for (const [locale, original] of this.#originals) {
@@ -195,7 +206,7 @@ export class Inspector {
     this.#observer = createWatcher({
       toolSelector: this.#options.toolSelector,
       read: (node: Node) => readMarkers(node, this.#reader),
-      readAttributes: (element: Element) => readAttributeMarkers(element, this.#reader),
+      readElement: (element: Element) => readElementMarkers(element, this.#reader),
       isOwnChurn: () => Date.now() <= this.#selfInflictedUntil,
       onForeignContent: () => this.#scheduleApply(),
     })

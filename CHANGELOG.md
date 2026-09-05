@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Translated attributes no longer keep the previous translation key after an update.
+- Elements no longer keep stale keys after translated text or attributes disappear.
+
 ## 0.2.1
 
 - A section that hydrates on scroll now gets its keys. Hydration adopts the
