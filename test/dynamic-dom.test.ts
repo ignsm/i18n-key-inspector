@@ -46,7 +46,7 @@ async function mount() {
         h('span', { title: i18n.global.t('hint') }, plain.value ? '' : i18n.global.t(key.value)),
         h('div', [i18n.global.t('first'), i18n.global.t('second')]),
         h('em', [i18n.global.t('first'), i18n.global.t('second'), i18n.global.t('alias')]),
-        h('small', [i18n.global.t('first'), i18n.global.t('second'), 'First']),
+        h('small', [show.value ? i18n.global.t('first') : null, i18n.global.t('second'), 'First']),
         h('strong', [show.value ? i18n.global.t('first') : null, i18n.global.t('alias')]),
       ]),
   })
@@ -210,4 +210,15 @@ it('keeps its own key when an identical translation disappears', async () => {
   show.value = false
   await flush()
   expect(inspector.keyAt(pair)).toBe('alias')
+})
+
+it('leaves a literal alone when a translation beside it disappears', async () => {
+  const { show, host } = await mount()
+  const mixed = element(host, 'small')
+  expect(inspector.keyAt(mixed)).toBe('second')
+  show.value = false
+  await flush()
+  expect(inspector.keyAt(mixed)).toBe('second')
+  await vi.advanceTimersByTimeAsync(3000)
+  expect(inspector.keyAt(mixed)).toBe('second')
 })

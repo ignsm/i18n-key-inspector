@@ -43,6 +43,7 @@ export class Inspector {
   #hydrationTimer: ReturnType<typeof setTimeout> | null = null
   #texts = new WeakMap<Element, readonly TextSource[]>()
   #attributes = new WeakMap<Element, Map<string, MarkerSource>>()
+  #seen = new WeakSet<Text>()
   readonly #tagged = new Map<Element, string | null>()
 
   constructor(adapter: CatalogueAdapter, init: InspectorInit = {}) {
@@ -135,6 +136,7 @@ export class Inspector {
     this.#tagged.clear()
     this.#texts = new WeakMap()
     this.#attributes = new WeakMap()
+    this.#seen = new WeakSet()
   }
 
   /**
@@ -157,6 +159,7 @@ export class Inspector {
       keyFor: (marked: string) => this.#table.keyFor(marked),
       texts: this.#texts,
       attributes: this.#attributes,
+      seen: this.#seen,
       onClear: (element: Element) => this.#forget(element),
       onTag: (element: Element) => this.#remember(element),
     }

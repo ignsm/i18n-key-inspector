@@ -16,6 +16,7 @@ export interface ReaderContext {
   readonly keyAttribute: string
   readonly keyFor: (marked: string) => string | null
   readonly texts: WeakMap<Element, readonly TextSource[]>
+  readonly seen: WeakSet<Text>
   readonly attributes: WeakMap<Element, Map<string, MarkerSource>>
   readonly onTag: (element: Element) => void
   readonly onClear: (element: Element) => void
@@ -53,7 +54,9 @@ function readTexts(element: Element, context: ReaderContext): string | null {
   let key: string | null = null
 
   for (const node of nodes) {
-    const source = readSource(node.data, takeSource(carried, node, live), context)
+    const fresh = !context.seen.has(node)
+    context.seen.add(node)
+    const source = readSource(node.data, takeSource(carried, node, live, fresh), context)
     if (source === null) continue
     texts.push({ ...source, node })
     key = source.key
@@ -66,14 +69,17 @@ function readTexts(element: Element, context: ReaderContext): string | null {
 }
 
 // A node keeps the source that it carried before.
-// A source whose node left the element goes to a node with the same text.
+// A source whose node left the element goes to a node that the app just built.
+// A node that the reader saw before takes no source of a departed node.
 function takeSource(
   carried: TextSource[],
   node: Text,
-  live: ReadonlySet<Text>
+  live: ReadonlySet<Text>,
+  fresh: boolean
 ): TextSource | undefined {
   const own = carried.findIndex((source) => source.node === node)
   if (own !== -1) return carried.splice(own, 1)[0]
+  if (!fresh) return undefined
 
   const clean = stripMarkers(node.data)
   const gone = carried.findIndex((source) => source.value === clean && !live.has(source.node))
