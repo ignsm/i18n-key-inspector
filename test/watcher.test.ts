@@ -63,3 +63,28 @@ it('reads the target again when the app changes an attribute', async () => {
   observer.disconnect()
   expect(ports.readElement).toHaveBeenCalledWith(host)
 })
+
+it('reads an element once when a batch changes many of its text nodes', async () => {
+  const ports = spyPorts()
+  const { observer, host } = watch(ports)
+  const nodes = ['one', 'two', 'three'].map((text) => document.createTextNode(text))
+  host.append(...nodes)
+  await settle()
+  ports.readElement.mockClear()
+  for (const node of nodes) node.data = `${node.data}!`
+  await settle()
+  observer.disconnect()
+  expect(ports.readElement.mock.calls).toEqual([[host]])
+})
+
+it('reads a parent once when a batch adds many text nodes', async () => {
+  const ports = spyPorts()
+  const { observer, host } = watch(ports)
+  host.append(document.createTextNode('one'))
+  host.append(document.createTextNode('two'))
+  host.append(document.createTextNode('three'))
+  await settle()
+  observer.disconnect()
+  expect(ports.readElement.mock.calls).toEqual([[host]])
+  expect(ports.read).not.toHaveBeenCalled()
+})

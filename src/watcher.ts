@@ -41,18 +41,33 @@ export function createWatcher(ports: WatcherPorts): MutationObserver {
     for (const record of records) {
       if (!ownChurn && isForeignRecord(record, ports.toolSelector)) sawForeignContent = true
     }
-    for (const record of records) readRecord(record, ports)
+    readBatch(records, ports)
 
     if (sawForeignContent) ports.onForeignContent()
   })
 }
 
-function readRecord(record: MutationRecord, ports: WatcherPorts): void {
-  if (record.type === 'characterData') ports.read(record.target)
-  if (readsTarget(record) && record.target instanceof Element) {
-    ports.readElement(record.target)
+// A read of one element covers every text node under it.
+// One pass over a long list produces one record for each sibling.
+// Collect the elements first, so the batch reads each of them once.
+function readBatch(records: readonly MutationRecord[], ports: WatcherPorts): void {
+  const elements = new Set<Element>()
+  const roots: Node[] = []
+
+  for (const record of records) {
+    if (readsTarget(record) && record.target instanceof Element) elements.add(record.target)
+    if (record.type === 'characterData') collect(record.target, elements, roots)
+    for (const node of Array.from(record.addedNodes)) collect(node, elements, roots)
   }
-  for (const node of Array.from(record.addedNodes)) ports.read(node)
+
+  for (const root of roots) ports.read(root)
+  for (const element of elements) ports.readElement(element)
+}
+
+// A subtree needs its own walk. A text node only needs its parent.
+function collect(node: Node, elements: Set<Element>, roots: Node[]): void {
+  if (node instanceof Element) roots.push(node)
+  else if (node.parentElement !== null) elements.add(node.parentElement)
 }
 
 // The inspector reads an added node, and that read covers its parent.
