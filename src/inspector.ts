@@ -35,7 +35,7 @@ export class Inspector {
   #onScroll: (() => void) | null = null
   #reapplyTimer: ReturnType<typeof setTimeout> | null = null
   #hydrationTimer: ReturnType<typeof setTimeout> | null = null
-  #texts = new WeakMap<Node, MarkerSource>()
+  #texts = new WeakMap<Element, Map<string, MarkerSource>>()
   #attributes = new WeakMap<Element, Map<string, MarkerSource>>()
   readonly #tagged = new Map<Element, string | null>()
 
@@ -163,9 +163,9 @@ export class Inspector {
 
   #forget(element: Element): void {
     if (!this.#tagged.has(element)) return
-    const previous = this.#tagged.get(element)
+    const previous = this.#tagged.get(element) ?? null
     this.#tagged.delete(element)
-    if (previous == null) element.removeAttribute(this.#attribute)
+    if (previous === null) element.removeAttribute(this.#attribute)
     else element.setAttribute(this.#attribute, previous)
   }
 

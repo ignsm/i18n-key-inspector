@@ -126,3 +126,13 @@ it('keeps keys after a scheduled pass and removes them on stop', async () => {
   expect(inspector.keyAt(paragraph)).toBeNull()
   expect(paragraph.textContent).toBe('First')
 })
+
+it('keeps the key when the app rebuilds the text node with the same text', async () => {
+  const { host } = await mount()
+  const paragraph = element(host, 'p')
+  await vi.advanceTimersByTimeAsync(1500)
+  expect(inspector.keyAt(paragraph)).toBe('first')
+  paragraph.replaceChildren(document.createTextNode(paragraph.textContent ?? ''))
+  await flush()
+  expect(inspector.keyAt(paragraph)).toBe('first')
+})

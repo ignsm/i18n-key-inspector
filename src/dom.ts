@@ -10,7 +10,7 @@ export interface MarkerSource {
 export interface ReaderContext {
   readonly keyAttribute: string
   readonly keyFor: (marked: string) => string | null
-  readonly texts: WeakMap<Node, MarkerSource>
+  readonly texts: WeakMap<Element, Map<string, MarkerSource>>
   readonly attributes: WeakMap<Element, Map<string, MarkerSource>>
   readonly onTag: (element: Element) => void
   readonly onClear: (element: Element) => void
@@ -18,26 +18,16 @@ export interface ReaderContext {
 
 /**
  * Reads the sources on one element and updates its key.
- * Text takes precedence over attributes, whose DOM order breaks ties.
+ * Text takes precedence over attributes.
+ * The last marked text node wins, and the first marked attribute wins.
  *
  * @param element - Element whose text or attributes changed.
  * @param context - Key lookup and sources from earlier reads.
  */
 export function readElementMarkers(element: Element, context: ReaderContext): void {
-  let key = readAttributes(element, context)
-
-  for (const node of Array.from(element.childNodes)) {
-    if (node.nodeType !== Node.TEXT_NODE) continue
-    const text = node as Text
-    const source = readSource(text.data, context.texts.get(text), context)
-    if (source === null) {
-      context.texts.delete(text)
-      continue
-    }
-    context.texts.set(text, source)
-    key = source.key
-    if (text.data !== source.value) text.data = source.value
-  }
+  const attributeKey = readAttributes(element, context)
+  const textKey = readTexts(element, context)
+  const key = textKey ?? attributeKey
 
   if (key === null) {
     context.onClear(element)
@@ -45,6 +35,27 @@ export function readElementMarkers(element: Element, context: ReaderContext): vo
     context.onTag(element)
     element.setAttribute(context.keyAttribute, key)
   }
+}
+
+// The app can rebuild a text node and write the same text again.
+// A source held against the node itself dies with the old node.
+// Hold it against the clean text, so the new node finds it.
+function readTexts(element: Element, context: ReaderContext): string | null {
+  const previous = context.texts.get(element)
+  const texts = new Map<string, MarkerSource>()
+  let key: string | null = null
+
+  for (const node of Array.from(element.childNodes)) {
+    if (!(node instanceof Text)) continue
+    const source = readSource(node.data, previous?.get(node.data), context)
+    if (source === null) continue
+    texts.set(source.value, source)
+    key = source.key
+    if (node.data !== source.value) node.data = source.value
+  }
+  keepSources(context.texts, element, texts)
+
+  return key
 }
 
 function readAttributes(element: Element, context: ReaderContext): string | null {
@@ -60,9 +71,20 @@ function readAttributes(element: Element, context: ReaderContext): string | null
     key ??= source.key
     if (attribute.value !== source.value) element.setAttribute(attribute.name, source.value)
   }
-  context.attributes.set(element, attributes)
+  keepSources(context.attributes, element, attributes)
 
   return key
+}
+
+// An empty map serves no previous value.
+// The first pass reads every element on the page, so do not keep one each.
+function keepSources(
+  cache: WeakMap<Element, Map<string, MarkerSource>>,
+  element: Element,
+  sources: Map<string, MarkerSource>
+): void {
+  if (sources.size === 0) cache.delete(element)
+  else cache.set(element, sources)
 }
 
 // Our cleanup also produces mutations. Keep the key for that clean value.
