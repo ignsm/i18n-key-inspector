@@ -6,11 +6,16 @@ export interface MarkerSource {
   readonly value: string
 }
 
+/** A source and the text node that carries it. */
+export interface TextSource extends MarkerSource {
+  readonly node: Text
+}
+
 /** What the DOM reader needs. It turns a marker into a tagged element. */
 export interface ReaderContext {
   readonly keyAttribute: string
   readonly keyFor: (marked: string) => string | null
-  readonly texts: WeakMap<Element, readonly MarkerSource[]>
+  readonly texts: WeakMap<Element, readonly TextSource[]>
   readonly attributes: WeakMap<Element, Map<string, MarkerSource>>
   readonly onTag: (element: Element) => void
   readonly onClear: (element: Element) => void
@@ -38,18 +43,19 @@ export function readElementMarkers(element: Element, context: ReaderContext): vo
 }
 
 // The app can rebuild a text node and write the same text again.
-// A source held against the node itself dies with the old node.
-// Hold the sources in DOM order instead, so the new node finds one.
+// A source therefore outlives its node, and a new node can take it.
+// Only a node that left the element hands its source on.
 function readTexts(element: Element, context: ReaderContext): string | null {
+  const nodes = Array.from(element.childNodes).filter((node): node is Text => node instanceof Text)
   const carried = [...(context.texts.get(element) ?? [])]
-  const texts: MarkerSource[] = []
+  const live = new Set(nodes)
+  const texts: TextSource[] = []
   let key: string | null = null
 
-  for (const node of Array.from(element.childNodes)) {
-    if (!(node instanceof Text)) continue
-    const source = readSource(node.data, takeSource(carried, node.data), context)
+  for (const node of nodes) {
+    const source = readSource(node.data, takeSource(carried, node, live), context)
     if (source === null) continue
-    texts.push(source)
+    texts.push({ ...source, node })
     key = source.key
     if (node.data !== source.value) node.data = source.value
   }
@@ -59,13 +65,20 @@ function readTexts(element: Element, context: ReaderContext): string | null {
   return key
 }
 
-// Two messages can render the same text, and each keeps its own key.
-// One source therefore serves one node. Take it out of the list.
-// Plain text that repeats a translation then carries no key.
-function takeSource(carried: MarkerSource[], value: string): MarkerSource | undefined {
-  const index = carried.findIndex((source) => source.value === value)
-  if (index === -1) return undefined
-  return carried.splice(index, 1)[0]
+// A node keeps the source that it carried before.
+// A source whose node left the element goes to a node with the same text.
+function takeSource(
+  carried: TextSource[],
+  node: Text,
+  live: ReadonlySet<Text>
+): TextSource | undefined {
+  const own = carried.findIndex((source) => source.node === node)
+  if (own !== -1) return carried.splice(own, 1)[0]
+
+  const clean = stripMarkers(node.data)
+  const gone = carried.findIndex((source) => source.value === clean && !live.has(source.node))
+  if (gone === -1) return undefined
+  return carried.splice(gone, 1)[0]
 }
 
 function readAttributes(element: Element, context: ReaderContext): string | null {

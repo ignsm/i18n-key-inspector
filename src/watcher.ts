@@ -49,10 +49,17 @@ export function createWatcher(ports: WatcherPorts): MutationObserver {
 
 function readRecord(record: MutationRecord, ports: WatcherPorts): void {
   if (record.type === 'characterData') ports.read(record.target)
-  if (record.type !== 'characterData' && record.target instanceof Element) {
+  if (readsTarget(record) && record.target instanceof Element) {
     ports.readElement(record.target)
   }
   for (const node of Array.from(record.addedNodes)) ports.read(node)
+}
+
+// The inspector reads an added node, and that read covers its parent.
+// Only a removal or an attribute change needs the target itself.
+function readsTarget(record: MutationRecord): boolean {
+  if (record.type === 'attributes') return true
+  return record.type === 'childList' && record.removedNodes.length > 0
 }
 
 function isForeignRecord(record: MutationRecord, toolSelector: string): boolean {

@@ -30,6 +30,7 @@ async function mount() {
   vi.useFakeTimers()
   const key = ref('first')
   const plain = ref(false)
+  const show = ref(true)
   const i18n = createI18n({
     legacy: false,
     locale: 'en',
@@ -45,6 +46,8 @@ async function mount() {
         h('span', { title: i18n.global.t('hint') }, plain.value ? '' : i18n.global.t(key.value)),
         h('div', [i18n.global.t('first'), i18n.global.t('second')]),
         h('em', [i18n.global.t('first'), i18n.global.t('second'), i18n.global.t('alias')]),
+        h('small', [i18n.global.t('first'), i18n.global.t('second'), 'First']),
+        h('strong', [show.value ? i18n.global.t('first') : null, i18n.global.t('alias')]),
       ]),
   })
   app.use(i18n)
@@ -52,7 +55,7 @@ async function mount() {
   inspector = new Inspector(createVueI18nAdapter(i18n.global))
   inspector.start()
   await flush()
-  return { key, plain, host }
+  return { key, plain, show, host }
 }
 
 async function mountWithSpy() {
@@ -190,4 +193,21 @@ it('keeps the last key when two translations render the same text', async () => 
   expect(inspector.keyAt(trio)).toBe('alias')
   await vi.advanceTimersByTimeAsync(3000)
   expect(inspector.keyAt(trio)).toBe('alias')
+})
+
+it('keeps the key when a pass re-marks a literal that repeats a translation', async () => {
+  const { host } = await mount()
+  const mixed = element(host, 'small')
+  expect(inspector.keyAt(mixed)).toBe('second')
+  await vi.advanceTimersByTimeAsync(3000)
+  expect(inspector.keyAt(mixed)).toBe('second')
+})
+
+it('keeps its own key when an identical translation disappears', async () => {
+  const { show, host } = await mount()
+  const pair = element(host, 'strong')
+  expect(inspector.keyAt(pair)).toBe('alias')
+  show.value = false
+  await flush()
+  expect(inspector.keyAt(pair)).toBe('alias')
 })

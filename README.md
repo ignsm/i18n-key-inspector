@@ -178,6 +178,10 @@ Building your own UI instead? Mark it with `data-i18n-inspector-ui`, or set
 - Edit a locale file while the inspector runs, and the new text appears for a
   moment. The next pass restores the snapshot from `start()`. Stop the
   inspector and start it again to pick the edit up.
+- The inspector strips its markers from the page, so it remembers which text
+  belongs to which key. Text of the app that reads the same as a translation
+  therefore keeps that key. A `{{ label }}` that renders `Active` from the
+  catalogue and then `Active` from an API still reports the catalogue key.
 
 ## Write an adapter
 
