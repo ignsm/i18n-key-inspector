@@ -4,7 +4,7 @@ Thank you for looking at this package.
 
 ## Development
 
-Use pnpm and Node 22.18 or a newer Node 22 release for development.
+Use pnpm and Node 22.18 or later for development.
 The published package supports Node 20.19 as well.
 
 ```sh

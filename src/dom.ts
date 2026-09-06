@@ -8,17 +8,36 @@ export interface MarkerSource {
 
 /** A source and the text node that carries it. */
 export interface TextSource extends MarkerSource {
+  /** The node that held the value at the last read. */
   readonly node: Text
 }
 
 /** What the DOM reader needs. It turns a marker into a tagged element. */
 export interface ReaderContext {
+  /** Attribute that holds the key, such as `data-i18n-key`. */
   readonly keyAttribute: string
+  /** Finds the key of a marker in the current table. */
   readonly keyFor: (marked: string) => string | null
+  /**
+   * The sources that the text nodes of an element carried last.
+   * The list follows DOM order.
+   * A node reclaims its own source, and a departed source can move on.
+   */
   readonly texts: WeakMap<Element, readonly TextSource[]>
+  /**
+   * Every text node that the reader has read before.
+   * Only a node outside this set takes the source of a departed node.
+   * Text that the app kept therefore never inherits a key.
+   */
   readonly seen: WeakSet<Text>
+  /**
+   * The sources that the attributes of an element carried last.
+   * The map holds one source for each marked attribute.
+   */
   readonly attributes: WeakMap<Element, Map<string, MarkerSource>>
+  /** Runs before the reader writes the key attribute on an element. */
   readonly onTag: (element: Element) => void
+  /** Runs when no source is left, and the element loses its key. */
   readonly onClear: (element: Element) => void
 }
 
