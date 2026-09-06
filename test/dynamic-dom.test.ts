@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { type App, createApp, h, nextTick, ref } from 'vue'
 import { createI18n } from 'vue-i18n'
 import { Inspector } from '../src/inspector'
+import type { CatalogueAdapter, MessageGroup } from '../src/types'
 import { createVueI18nAdapter } from '../src/vue-i18n'
 
 let inspector: Inspector
@@ -42,6 +43,7 @@ async function mount() {
         h('button', { 'aria-label': plain.value ? undefined : i18n.global.t(key.value) }),
         h('p', plain.value ? 'User text' : i18n.global.t(key.value)),
         h('span', { title: i18n.global.t('hint') }, plain.value ? '' : i18n.global.t(key.value)),
+        h('div', [i18n.global.t('first'), i18n.global.t('second')]),
       ]),
   })
   app.use(i18n)
@@ -50,6 +52,29 @@ async function mount() {
   inspector.start()
   await flush()
   return { key, plain, host }
+}
+
+async function mountWithSpy() {
+  vi.useFakeTimers()
+  const i18n = createI18n({
+    legacy: false,
+    locale: 'en',
+    messages: { en: { first: 'First', second: 'Second' } },
+  })
+  const host = document.createElement('div')
+  document.body.append(host)
+  app = createApp({ render: () => h('section', []) })
+  app.use(i18n)
+  app.mount(host)
+  const base = createVueI18nAdapter(i18n.global)
+  const setCatalogue = vi.fn((locale: string, catalogue: MessageGroup) => {
+    base.setCatalogue(locale, catalogue)
+  })
+  const adapter: CatalogueAdapter = { ...base, setCatalogue }
+  inspector = new Inspector(adapter)
+  inspector.start()
+  await flush()
+  return { host, i18n, setCatalogue }
 }
 
 it('updates the key when Vue changes a translated attribute', async () => {
@@ -135,4 +160,25 @@ it('keeps the key when the app rebuilds the text node with the same text', async
   paragraph.replaceChildren(document.createTextNode(paragraph.textContent ?? ''))
   await flush()
   expect(inspector.keyAt(paragraph)).toBe('first')
+})
+
+it('ignores plain text that repeats an earlier translation', async () => {
+  const { host } = await mount()
+  const pair = element(host, 'div')
+  expect(inspector.keyAt(pair)).toBe('second')
+  pair.append(document.createTextNode('First'))
+  await flush()
+  expect(inspector.keyAt(pair)).toBe('second')
+})
+
+it('reads a batch of added translations without a second pass', async () => {
+  const { host, i18n, setCatalogue } = await mountWithSpy()
+  const section = element(host, 'section')
+  await vi.advanceTimersByTimeAsync(3000)
+  const passes = setCatalogue.mock.calls.length
+  section.append(document.createTextNode(i18n.global.t('first')))
+  section.append(document.createTextNode(i18n.global.t('second')))
+  await flush()
+  await vi.advanceTimersByTimeAsync(2000)
+  expect(setCatalogue.mock.calls.length).toBe(passes)
 })

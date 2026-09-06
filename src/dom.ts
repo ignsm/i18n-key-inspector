@@ -40,6 +40,7 @@ export function readElementMarkers(element: Element, context: ReaderContext): vo
 // The app can rebuild a text node and write the same text again.
 // A source held against the node itself dies with the old node.
 // Hold it against the clean text, so the new node finds it.
+// One source serves one node, so later plain text carries no key.
 function readTexts(element: Element, context: ReaderContext): string | null {
   const previous = context.texts.get(element)
   const texts = new Map<string, MarkerSource>()
@@ -47,7 +48,8 @@ function readTexts(element: Element, context: ReaderContext): string | null {
 
   for (const node of Array.from(element.childNodes)) {
     if (!(node instanceof Text)) continue
-    const source = readSource(node.data, previous?.get(node.data), context)
+    const carried = texts.has(node.data) ? undefined : previous?.get(node.data)
+    const source = readSource(node.data, carried, context)
     if (source === null) continue
     texts.set(source.value, source)
     key = source.key

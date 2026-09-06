@@ -36,10 +36,12 @@ export function createWatcher(ports: WatcherPorts): MutationObserver {
     const ownChurn = ports.isOwnChurn()
     let sawForeignContent = false
 
+    // Our own read strips the markers off the rest of the batch.
+    // Classify every record first, so a sibling never looks foreign.
     for (const record of records) {
       if (!ownChurn && isForeignRecord(record, ports.toolSelector)) sawForeignContent = true
-      readRecord(record, ports)
     }
+    for (const record of records) readRecord(record, ports)
 
     if (sawForeignContent) ports.onForeignContent()
   })
