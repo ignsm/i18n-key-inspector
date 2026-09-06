@@ -48,7 +48,12 @@ startInspector(adapter, { activation: null }) // start at once, no shortcut
 
 `startInspector` returns `{ inspector, active, toggle, stop }`, so you can
 drive it from your own devtools panel. `inspector.keyAt(element)` gives you the
-key for your own UI.
+key for your own UI. The key follows changes to translated text and attributes.
+When that translation disappears, its key goes away too.
+
+An element can hold several translations. Its last direct text node with a
+translation takes precedence. Otherwise, its first translated attribute in DOM
+order supplies the key.
 
 ## Use it in Nuxt
 
@@ -165,14 +170,18 @@ Building your own UI instead? Mark it with `data-i18n-inspector-ui`, or set
 
 ## Limits
 
-- A message that opens with an interpolation gets no marker. There is no
-  literal text at the front to hold it.
+- A compiled message with no literal text gets no marker. A message such as
+  `{n} notes` carries its marker in the text after the interpolation.
 - A component can call `t()` once, outside a reactive scope. It keeps the text
   that it read at build time. Those strings stay untagged until the framework
   builds the component again.
 - Edit a locale file while the inspector runs, and the new text appears for a
   moment. The next pass restores the snapshot from `start()`. Stop the
   inspector and start it again to pick the edit up.
+- The inspector strips its markers from the page, so it remembers which text
+  belongs to which key. Text of the app that reads the same as a translation
+  therefore keeps that key. A `{{ label }}` that renders `Active` from the
+  catalogue and then `Active` from an API still reports the catalogue key.
 
 ## Write an adapter
 

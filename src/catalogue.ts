@@ -125,8 +125,8 @@ function markCompiled(
   const marker = table.claim(path)
   const marked = markCompiledMessage(message, marker, options)
 
-  // A message that opens with an interpolation has no text at the front.
-  // It cannot hold a marker, so it keeps its key out of the table.
+  // A compiled message needs literal text to hold a marker.
+  // Leave its key out when marking the message fails.
   if (marked === null) {
     table.release(path)
     return message

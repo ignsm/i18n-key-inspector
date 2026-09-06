@@ -1,4 +1,4 @@
-import { isForeignText } from './dom'
+import { isElement, isForeignText } from './dom'
 
 /** What the watcher needs from the inspector. */
 export interface WatcherPorts {
@@ -6,8 +6,8 @@ export interface WatcherPorts {
   readonly toolSelector: string
   /** Reads the markers of a node that the app added. */
   readonly read: (node: Node) => void
-  /** Reads the markers of the attributes of one element. */
-  readonly readAttributes: (element: Element) => void
+  /** Refreshes the sources on an element after a mutation. */
+  readonly readElement: (element: Element) => void
   /**
    * `true` while a mutation still belongs to the last marking pass.
    * The watcher asks once for each batch, never once for each record.
@@ -36,27 +36,51 @@ export function createWatcher(ports: WatcherPorts): MutationObserver {
     const ownChurn = ports.isOwnChurn()
     let sawForeignContent = false
 
+    // Our own read strips the markers off the rest of the batch.
+    // Classify every record first, so a sibling never looks foreign.
     for (const record of records) {
       if (!ownChurn && isForeignRecord(record, ports.toolSelector)) sawForeignContent = true
-      readRecord(record, ports)
     }
+    readBatch(records, ports)
 
     if (sawForeignContent) ports.onForeignContent()
   })
 }
 
-function readRecord(record: MutationRecord, ports: WatcherPorts): void {
-  if (record.type === 'characterData') ports.read(record.target)
-  if (record.type === 'attributes' && record.target instanceof Element) {
-    ports.readAttributes(record.target)
+// A read of one element covers every text node under it.
+// One pass over a long list produces one record for each sibling.
+// Collect the elements first, so the batch reads each of them once.
+function readBatch(records: readonly MutationRecord[], ports: WatcherPorts): void {
+  const elements = new Set<Element>()
+  const roots: Node[] = []
+
+  for (const record of records) {
+    if (readsTarget(record) && isElement(record.target)) elements.add(record.target)
+    if (record.type === 'characterData') collect(record.target, elements, roots)
+    for (const node of Array.from(record.addedNodes)) collect(node, elements, roots)
   }
-  for (const node of Array.from(record.addedNodes)) ports.read(node)
+
+  for (const root of roots) ports.read(root)
+  for (const element of elements) ports.readElement(element)
+}
+
+// A subtree needs its own walk. A text node only needs its parent.
+function collect(node: Node, elements: Set<Element>, roots: Node[]): void {
+  if (isElement(node)) roots.push(node)
+  else if (node.parentElement !== null) elements.add(node.parentElement)
+}
+
+// The inspector reads an added node, and that read covers its parent.
+// Only a removal or an attribute change needs the target itself.
+function readsTarget(record: MutationRecord): boolean {
+  if (record.type === 'attributes') return true
+  return record.type === 'childList' && record.removedNodes.length > 0
 }
 
 function isForeignRecord(record: MutationRecord, toolSelector: string): boolean {
   if (record.type !== 'childList') return false
 
-  const target = record.target instanceof Element ? record.target : null
+  const target = isElement(record.target) ? record.target : null
   return Array.from(record.addedNodes).some((node) =>
     isForeignText(node.textContent ?? '', insideTool(node, target, toolSelector))
   )
@@ -66,7 +90,7 @@ function isForeignRecord(record: MutationRecord, toolSelector: string): boolean 
 // Use the target in the other cases.
 // A node that the app removes in the same task has no parent.
 function insideTool(node: Node, target: Element | null, toolSelector: string): boolean {
-  const element = node instanceof Element ? node : (node.parentElement ?? target)
+  const element = isElement(node) ? node : (node.parentElement ?? target)
   if (element === null) return false
   return element.closest(toolSelector) !== null
 }

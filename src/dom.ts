@@ -1,5 +1,47 @@
 import { hasMarker, stripMarkers } from './markers'
 
+/** A key and the clean value that still belongs to it. */
+export interface MarkerSource {
+  readonly key: string
+  readonly value: string
+}
+
+/**
+ * Tells a text node from any other node.
+ * A node of another realm fails `instanceof`, so this reads the node type.
+ *
+ * @param node - Any node of the page.
+ * @returns `true` for a text node, and for one adopted out of an iframe.
+ * @example
+ * ```ts
+ * isText(document.createTextNode('Hi')) // true
+ * ```
+ */
+export function isText(node: Node): node is Text {
+  return node.nodeType === Node.TEXT_NODE
+}
+
+/**
+ * Tells an element from any other node.
+ * A node of another realm fails `instanceof`, so this reads the node type.
+ *
+ * @param node - Any node of the page.
+ * @returns `true` for an element, and for one adopted out of an iframe.
+ * @example
+ * ```ts
+ * isElement(document.createElement('p')) // true
+ * ```
+ */
+export function isElement(node: Node): node is Element {
+  return node.nodeType === Node.ELEMENT_NODE
+}
+
+/** A source and the text node that carries it. */
+export interface TextSource extends MarkerSource {
+  /** The node that held the value at the last read. */
+  readonly node: Text
+}
+
 /** What the DOM reader needs. It turns a marker into a tagged element. */
 export interface ReaderContext {
   /** Attribute that holds the key, such as `data-i18n-key`. */
@@ -7,66 +49,139 @@ export interface ReaderContext {
   /** Finds the key of a marker in the current table. */
   readonly keyFor: (marked: string) => string | null
   /**
-   * Elements that already have a key this round.
-   * An element can hold more than one marked attribute.
-   * The first attribute names it.
-   * The next pass clears the set, so a new marker can replace an old key.
+   * The sources that the text nodes of an element carried last.
+   * The list follows DOM order.
+   * A node reclaims its own source, and a departed source can move on.
    */
-  readonly labelled: WeakSet<Element>
+  readonly texts: WeakMap<Element, readonly TextSource[]>
+  /**
+   * Every text node that the reader has read before.
+   * Only a node outside this set takes the source of a departed node.
+   * Text that the app kept therefore never inherits a key.
+   */
+  readonly seen: WeakSet<Text>
+  /**
+   * The sources that the attributes of an element carried last.
+   * The map holds one source for each marked attribute.
+   */
+  readonly attributes: WeakMap<Element, Map<string, MarkerSource>>
   /** Runs before the reader writes the key attribute on an element. */
   readonly onTag: (element: Element) => void
+  /** Runs when no source is left, and the element loses its key. */
+  readonly onClear: (element: Element) => void
 }
 
 /**
- * Tags an element from the markers in its attributes.
- * It then removes the markers, so an `href` stays a valid URL.
+ * Reads the sources on one element and updates its key.
+ * Text takes precedence over attributes.
+ * The last marked text node wins, and the first marked attribute wins.
  *
- * @param element - Element with attributes that can hold markers.
- * @param context - Key attribute, key lookup, and the labelled set.
+ * @param element - Element whose text or attributes changed.
+ * @param context - Key lookup and sources from earlier reads.
  */
-export function readAttributeMarkers(element: Element, context: ReaderContext): void {
-  for (const attribute of Array.from(element.attributes)) {
-    const key = context.keyFor(attribute.value)
-    if (key === null) continue
+export function readElementMarkers(element: Element, context: ReaderContext): void {
+  const attributeKey = readAttributes(element, context)
+  const textKey = readTexts(element, context)
+  const key = textKey ?? attributeKey
 
-    if (!context.labelled.has(element)) {
-      context.onTag(element)
-      element.setAttribute(context.keyAttribute, key)
-      context.labelled.add(element)
-    }
-    element.setAttribute(attribute.name, stripMarkers(attribute.value))
+  if (key === null) {
+    context.onClear(element)
+  } else if (element.getAttribute(context.keyAttribute) !== key) {
+    context.onTag(element)
+    element.setAttribute(context.keyAttribute, key)
   }
 }
 
+// The app can rebuild a text node and write the same text again.
+// A source therefore outlives its node, and a new node can take it.
+// Only a node that left the element hands its source on.
+function readTexts(element: Element, context: ReaderContext): string | null {
+  const nodes = Array.from(element.childNodes).filter(isText)
+  const carried = [...(context.texts.get(element) ?? [])]
+  const live = new Set(nodes)
+  const texts: TextSource[] = []
+  let key: string | null = null
+
+  for (const node of nodes) {
+    const fresh = !context.seen.has(node)
+    context.seen.add(node)
+    // A node that holds its own marker needs no source of another node.
+    const carry = hasMarker(node.data) ? undefined : takeSource(carried, node, live, fresh)
+    const source = readSource(node.data, carry, context)
+    if (source === null) continue
+    texts.push({ ...source, node })
+    key = source.key
+    if (node.data !== source.value) node.data = source.value
+  }
+  if (texts.length === 0) context.texts.delete(element)
+  else context.texts.set(element, texts)
+
+  return key
+}
+
+// A node keeps the source that it carried before.
+// A source whose node left the element goes to a node that the app just built.
+// A node that the reader saw before takes no source of a departed node.
+function takeSource(
+  carried: TextSource[],
+  node: Text,
+  live: ReadonlySet<Text>,
+  fresh: boolean
+): TextSource | undefined {
+  const own = carried.findIndex((source) => source.node === node)
+  if (own !== -1) return carried.splice(own, 1)[0]
+  if (!fresh) return undefined
+
+  const clean = stripMarkers(node.data)
+  const gone = carried.findIndex((source) => source.value === clean && !live.has(source.node))
+  if (gone === -1) return undefined
+  return carried.splice(gone, 1)[0]
+}
+
+function readAttributes(element: Element, context: ReaderContext): string | null {
+  const previous = context.attributes.get(element)
+  const attributes = new Map<string, MarkerSource>()
+  let key: string | null = null
+
+  for (const attribute of Array.from(element.attributes)) {
+    if (attribute.name === context.keyAttribute) continue
+    const source = readSource(attribute.value, previous?.get(attribute.name), context)
+    if (source === null) continue
+    attributes.set(attribute.name, source)
+    key ??= source.key
+    if (attribute.value !== source.value) element.setAttribute(attribute.name, source.value)
+  }
+  if (attributes.size === 0) context.attributes.delete(element)
+  else context.attributes.set(element, attributes)
+
+  return key
+}
+
+// Our cleanup also produces mutations. Keep the key for that clean value.
+function readSource(
+  value: string,
+  previous: MarkerSource | undefined,
+  context: ReaderContext
+): MarkerSource | null {
+  const key = context.keyFor(value)
+  if (key !== null) return { key, value: stripMarkers(value) }
+  return previous?.value === value ? previous : null
+}
+
 /**
- * Tags elements from the markers in their text.
- * It then removes the markers.
- *
- * The marker travels inside the string.
- * A `v-html` block therefore tags its own container.
- * Repeated copy tags each place with its own key.
+ * Reads markers in a subtree or in a text node's parent.
  *
  * @param root - Subtree to read, or a text node on its own.
- * @param context - Key attribute, key lookup, and the labelled set.
+ * @param context - Key lookup and sources from earlier reads.
  */
 export function readMarkers(root: Node, context: ReaderContext): void {
-  if (root instanceof Element) {
-    readAttributeMarkers(root, context)
+  if (isElement(root)) {
+    readElementMarkers(root, context)
     for (const child of Array.from(root.querySelectorAll('*'))) {
-      readAttributeMarkers(child, context)
+      readElementMarkers(child, context)
     }
-  }
-
-  for (const text of collectTextNodes(root)) {
-    const key = context.keyFor(text.data)
-    if (key === null) continue
-
-    const parent = text.parentElement
-    if (parent !== null) {
-      context.onTag(parent)
-      parent.setAttribute(context.keyAttribute, key)
-    }
-    text.data = stripMarkers(text.data)
+  } else if (root.parentElement !== null) {
+    readElementMarkers(root.parentElement, context)
   }
 }
 
@@ -86,18 +201,4 @@ export function readMarkers(root: Node, context: ReaderContext): void {
 export function isForeignText(text: string, insideTool: boolean): boolean {
   if (insideTool) return false
   return text.trim().length > 0 && !hasMarker(text)
-}
-
-function collectTextNodes(root: Node): readonly Text[] {
-  const nodes: Text[] = []
-  if (root.nodeType === Node.TEXT_NODE) nodes.push(root as Text)
-
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let node = walker.nextNode()
-  while (node !== null) {
-    nodes.push(node as Text)
-    node = walker.nextNode()
-  }
-
-  return nodes
 }
