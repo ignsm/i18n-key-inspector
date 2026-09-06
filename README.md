@@ -178,12 +178,16 @@ Building your own UI instead? Mark it with `data-i18n-inspector-ui`, or set
 - Edit a locale file while the inspector runs, and the new text appears for a
   moment. The next pass restores the snapshot from `start()`. Stop the
   inspector and start it again to pick the edit up.
-- A component can hold a string that `t()` gave it and render it one pass
-  later. That string carries the marker of the pass that wrote it, so the
-  element reports no key until the component renders it again.
+- A component can hold a string that `t()` gave it and render it later. The
+  table reads a marker of the pass before last, so the element reports no key
+  while one pass stands between the two. The next pass reads the key again.
+- Stop the inspector, load another catalogue, and start it again. A string
+  that a component still holds from the earlier run can name the key that
+  took its place. Render the component again, and it reports the right key.
 - The inspector puts its marker in front of the text. Code of the app that
   reads a translated string therefore sees the marker. A check such as
-  `value.trim().startsWith('[')` fails while the inspector runs.
+  `value.trim().startsWith('[')` fails for a message such as `[TODO] Copy`.
+  A message that holds a JSON array keeps its brackets and still parses.
 - The inspector strips its markers from the page, so it remembers which text
   belongs to which key. Text of the app that reads the same as a translation
   therefore keeps that key. A `{{ label }}` that renders `Active` from the
