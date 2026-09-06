@@ -35,7 +35,7 @@ export class Inspector {
   #onScroll: (() => void) | null = null
   #reapplyTimer: ReturnType<typeof setTimeout> | null = null
   #hydrationTimer: ReturnType<typeof setTimeout> | null = null
-  #texts = new WeakMap<Element, Map<string, MarkerSource>>()
+  #texts = new WeakMap<Element, readonly MarkerSource[]>()
   #attributes = new WeakMap<Element, Map<string, MarkerSource>>()
   readonly #tagged = new Map<Element, string | null>()
 

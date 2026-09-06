@@ -33,7 +33,7 @@ async function mount() {
   const i18n = createI18n({
     legacy: false,
     locale: 'en',
-    messages: { en: { first: 'First', second: 'Second', hint: 'Hint' } },
+    messages: { en: { first: 'First', second: 'Second', hint: 'Hint', alias: 'First' } },
   })
   const host = document.createElement('div')
   document.body.append(host)
@@ -44,6 +44,7 @@ async function mount() {
         h('p', plain.value ? 'User text' : i18n.global.t(key.value)),
         h('span', { title: i18n.global.t('hint') }, plain.value ? '' : i18n.global.t(key.value)),
         h('div', [i18n.global.t('first'), i18n.global.t('second')]),
+        h('em', [i18n.global.t('first'), i18n.global.t('second'), i18n.global.t('alias')]),
       ]),
   })
   app.use(i18n)
@@ -181,4 +182,12 @@ it('reads a batch of added translations without a second pass', async () => {
   await flush()
   await vi.advanceTimersByTimeAsync(2000)
   expect(setCatalogue.mock.calls.length).toBe(passes)
+})
+
+it('keeps the last key when two translations render the same text', async () => {
+  const { host } = await mount()
+  const trio = element(host, 'em')
+  expect(inspector.keyAt(trio)).toBe('alias')
+  await vi.advanceTimersByTimeAsync(3000)
+  expect(inspector.keyAt(trio)).toBe('alias')
 })

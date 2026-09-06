@@ -10,7 +10,7 @@ export interface MarkerSource {
 export interface ReaderContext {
   readonly keyAttribute: string
   readonly keyFor: (marked: string) => string | null
-  readonly texts: WeakMap<Element, Map<string, MarkerSource>>
+  readonly texts: WeakMap<Element, readonly MarkerSource[]>
   readonly attributes: WeakMap<Element, Map<string, MarkerSource>>
   readonly onTag: (element: Element) => void
   readonly onClear: (element: Element) => void
@@ -39,25 +39,33 @@ export function readElementMarkers(element: Element, context: ReaderContext): vo
 
 // The app can rebuild a text node and write the same text again.
 // A source held against the node itself dies with the old node.
-// Hold it against the clean text, so the new node finds it.
-// One source serves one node, so later plain text carries no key.
+// Hold the sources in DOM order instead, so the new node finds one.
 function readTexts(element: Element, context: ReaderContext): string | null {
-  const previous = context.texts.get(element)
-  const texts = new Map<string, MarkerSource>()
+  const carried = [...(context.texts.get(element) ?? [])]
+  const texts: MarkerSource[] = []
   let key: string | null = null
 
   for (const node of Array.from(element.childNodes)) {
     if (!(node instanceof Text)) continue
-    const carried = texts.has(node.data) ? undefined : previous?.get(node.data)
-    const source = readSource(node.data, carried, context)
+    const source = readSource(node.data, takeSource(carried, node.data), context)
     if (source === null) continue
-    texts.set(source.value, source)
+    texts.push(source)
     key = source.key
     if (node.data !== source.value) node.data = source.value
   }
-  keepSources(context.texts, element, texts)
+  if (texts.length === 0) context.texts.delete(element)
+  else context.texts.set(element, texts)
 
   return key
+}
+
+// Two messages can render the same text, and each keeps its own key.
+// One source therefore serves one node. Take it out of the list.
+// Plain text that repeats a translation then carries no key.
+function takeSource(carried: MarkerSource[], value: string): MarkerSource | undefined {
+  const index = carried.findIndex((source) => source.value === value)
+  if (index === -1) return undefined
+  return carried.splice(index, 1)[0]
 }
 
 function readAttributes(element: Element, context: ReaderContext): string | null {
@@ -73,20 +81,10 @@ function readAttributes(element: Element, context: ReaderContext): string | null
     key ??= source.key
     if (attribute.value !== source.value) element.setAttribute(attribute.name, source.value)
   }
-  keepSources(context.attributes, element, attributes)
+  if (attributes.size === 0) context.attributes.delete(element)
+  else context.attributes.set(element, attributes)
 
   return key
-}
-
-// An empty map serves no previous value.
-// The first pass reads every element on the page, so do not keep one each.
-function keepSources(
-  cache: WeakMap<Element, Map<string, MarkerSource>>,
-  element: Element,
-  sources: Map<string, MarkerSource>
-): void {
-  if (sources.size === 0) cache.delete(element)
-  else cache.set(element, sources)
 }
 
 // Our cleanup also produces mutations. Keep the key for that clean value.
