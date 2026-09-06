@@ -6,6 +6,36 @@ export interface MarkerSource {
   readonly value: string
 }
 
+/**
+ * Tells a text node from any other node.
+ * A node of another realm fails `instanceof`, so this reads the node type.
+ *
+ * @param node - Any node of the page.
+ * @returns `true` for a text node, and for one adopted out of an iframe.
+ * @example
+ * ```ts
+ * isText(document.createTextNode('Hi')) // true
+ * ```
+ */
+export function isText(node: Node): node is Text {
+  return node.nodeType === Node.TEXT_NODE
+}
+
+/**
+ * Tells an element from any other node.
+ * A node of another realm fails `instanceof`, so this reads the node type.
+ *
+ * @param node - Any node of the page.
+ * @returns `true` for an element, and for one adopted out of an iframe.
+ * @example
+ * ```ts
+ * isElement(document.createElement('p')) // true
+ * ```
+ */
+export function isElement(node: Node): node is Element {
+  return node.nodeType === Node.ELEMENT_NODE
+}
+
 /** A source and the text node that carries it. */
 export interface TextSource extends MarkerSource {
   /** The node that held the value at the last read. */
@@ -66,7 +96,7 @@ export function readElementMarkers(element: Element, context: ReaderContext): vo
 // A source therefore outlives its node, and a new node can take it.
 // Only a node that left the element hands its source on.
 function readTexts(element: Element, context: ReaderContext): string | null {
-  const nodes = Array.from(element.childNodes).filter((node): node is Text => node instanceof Text)
+  const nodes = Array.from(element.childNodes).filter(isText)
   const carried = [...(context.texts.get(element) ?? [])]
   const live = new Set(nodes)
   const texts: TextSource[] = []
@@ -145,7 +175,7 @@ function readSource(
  * @param context - Key lookup and sources from earlier reads.
  */
 export function readMarkers(root: Node, context: ReaderContext): void {
-  if (root instanceof Element) {
+  if (isElement(root)) {
     readElementMarkers(root, context)
     for (const child of Array.from(root.querySelectorAll('*'))) {
       readElementMarkers(child, context)

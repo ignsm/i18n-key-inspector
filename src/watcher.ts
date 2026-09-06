@@ -1,4 +1,4 @@
-import { isForeignText } from './dom'
+import { isElement, isForeignText } from './dom'
 
 /** What the watcher needs from the inspector. */
 export interface WatcherPorts {
@@ -55,7 +55,7 @@ function readBatch(records: readonly MutationRecord[], ports: WatcherPorts): voi
   const roots: Node[] = []
 
   for (const record of records) {
-    if (readsTarget(record) && record.target instanceof Element) elements.add(record.target)
+    if (readsTarget(record) && isElement(record.target)) elements.add(record.target)
     if (record.type === 'characterData') collect(record.target, elements, roots)
     for (const node of Array.from(record.addedNodes)) collect(node, elements, roots)
   }
@@ -66,7 +66,7 @@ function readBatch(records: readonly MutationRecord[], ports: WatcherPorts): voi
 
 // A subtree needs its own walk. A text node only needs its parent.
 function collect(node: Node, elements: Set<Element>, roots: Node[]): void {
-  if (node instanceof Element) roots.push(node)
+  if (isElement(node)) roots.push(node)
   else if (node.parentElement !== null) elements.add(node.parentElement)
 }
 
@@ -80,7 +80,7 @@ function readsTarget(record: MutationRecord): boolean {
 function isForeignRecord(record: MutationRecord, toolSelector: string): boolean {
   if (record.type !== 'childList') return false
 
-  const target = record.target instanceof Element ? record.target : null
+  const target = isElement(record.target) ? record.target : null
   return Array.from(record.addedNodes).some((node) =>
     isForeignText(node.textContent ?? '', insideTool(node, target, toolSelector))
   )
@@ -90,7 +90,7 @@ function isForeignRecord(record: MutationRecord, toolSelector: string): boolean 
 // Use the target in the other cases.
 // A node that the app removes in the same task has no parent.
 function insideTool(node: Node, target: Element | null, toolSelector: string): boolean {
-  const element = node instanceof Element ? node : (node.parentElement ?? target)
+  const element = isElement(node) ? node : (node.parentElement ?? target)
   if (element === null) return false
   return element.closest(toolSelector) !== null
 }

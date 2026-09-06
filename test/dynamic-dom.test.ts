@@ -234,3 +234,17 @@ it('lets a marked node keep its own key and pass the old one on', async () => {
   await flush()
   expect(inspector.keyAt(paragraph)).toBe('first')
 })
+
+it('reads a text node that the app adopted from another realm', async () => {
+  const { host, i18n } = await mount()
+  const box = document.createElement('div')
+  host.append(box)
+  const frame = document.createElement('iframe')
+  document.body.append(frame)
+  const inner = frame.contentDocument
+  if (inner === null) throw new Error('Missing frame document')
+  box.append(document.adoptNode(inner.createTextNode(i18n.global.t('hint'))))
+  await flush()
+  expect(inspector.keyAt(box)).toBe('hint')
+  expect(box.textContent).toBe('Hint')
+})
