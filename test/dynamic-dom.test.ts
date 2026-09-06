@@ -55,7 +55,7 @@ async function mount() {
   inspector = new Inspector(createVueI18nAdapter(i18n.global))
   inspector.start()
   await flush()
-  return { key, plain, show, host }
+  return { key, plain, show, host, i18n }
 }
 
 async function mountWithSpy() {
@@ -221,4 +221,16 @@ it('leaves a literal alone when a translation beside it disappears', async () =>
   expect(inspector.keyAt(mixed)).toBe('second')
   await vi.advanceTimersByTimeAsync(3000)
   expect(inspector.keyAt(mixed)).toBe('second')
+})
+
+it('lets a marked node keep its own key and pass the old one on', async () => {
+  const { host, i18n } = await mount()
+  const paragraph = element(host, 'p')
+  await vi.advanceTimersByTimeAsync(3000)
+  expect(inspector.keyAt(paragraph)).toBe('first')
+  const marked = document.createTextNode(i18n.global.t('alias'))
+  const clone = document.createTextNode(paragraph.textContent ?? '')
+  paragraph.replaceChildren(marked, clone)
+  await flush()
+  expect(inspector.keyAt(paragraph)).toBe('first')
 })

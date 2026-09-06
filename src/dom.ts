@@ -56,7 +56,9 @@ function readTexts(element: Element, context: ReaderContext): string | null {
   for (const node of nodes) {
     const fresh = !context.seen.has(node)
     context.seen.add(node)
-    const source = readSource(node.data, takeSource(carried, node, live, fresh), context)
+    // A node that holds its own marker needs no source of another node.
+    const carry = hasMarker(node.data) ? undefined : takeSource(carried, node, live, fresh)
+    const source = readSource(node.data, carry, context)
     if (source === null) continue
     texts.push({ ...source, node })
     key = source.key
